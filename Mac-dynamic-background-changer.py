@@ -1,41 +1,32 @@
-import urllib.request
-import urllib.parse
-import re
 import os
 import random
-import subprocess
+import urllib.request
 
-def get_image_urls():
-    page_url = 'https://wallpaperswide.com/new_wallpapers/page/{}/'
-    urls = []
-    for page in range(1, 11): # scrape 10 pages of new wallpapers
-        url = page_url.format(page)
-        with urllib.request.urlopen(url) as url:
-            page_bytes = url.read()
-            page_html = page_bytes.decode('utf-8')
-            image_blocks = re.findall(r'<div class="thumb">(.*?)<\/div>', page_html, re.DOTALL)
-            for block in image_blocks:
-                match = re.search(r'<a href="(.*?)"', block)
-                if match:
-                    url = match.group(1)
-                    urls.append(url)
-    return urls
+url = 'http://wallpaperswide.com/vintage-desktop-wallpapers.html' # the url of the website with images
+res = '2048x1152' #the desired resolution of the images
+path = "/Users/don.mccullough/Pictures/DWM Desktops" # the path where the downloaded images will be stored
 
-def download_image(url):
-    with urllib.request.urlopen(url) as img_url:
-        img_bytes = img_url.read()
-    filename = os.path.basename(url)
-    with open(filename, 'wb') as img_file:
-        img_file.write(img_bytes)
-    return filename
+# retrieve the source code of the website
+response = urllib.request.urlopen(url)
+source_code = response.read().decode()
+start_index = 0
+while start_index != -1: # find all the links to the images
+    img_start = source_code.find('<img src="', start_index)
+    if img_start == -1:
+        break
+    img_start += len('<img src="')
+    img_end = source_code.find('"', img_start)
+    img_url = source_code[img_start:img_end]
+    if res in img_url: # check if the image has the desired resolution
+        img_name = os.path.basename(img_url)
+        img_path = os.path.join(path, img_name)
+        urllib.request.urlretrieve(img_url, img_path) # download the image
+    start_index = img_end
 
-def set_desktop_image(filename):
-    cmd = 'osascript -e \'tell application "Finder" to set desktop picture to POSIX file "{}"\''
-    subprocess.call(cmd.format(os.path.abspath(filename)), shell=True)
+# select a random image from the downloaded ones
+img_list = os.listdir(path)
+img_name = random.choice(img_list)
 
-if __name__ == '__main__':
-    urls = get_image_urls()
-    url = random.choice(urls)
-    filename = download_image(url)
-    set_desktop_image(filename)
-
+# set the selected image as desktop background
+osascript = f'tell application "Finder" to set desktop picture to POSIX file "{os.path.join(path, img_name)}"'
+os.system(f"osascript -e '{osascript}'")
